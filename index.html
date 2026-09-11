@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css" />
+<link rel="stylesheet" href="./p50-history.css" />
 </head>
 <body>
 
@@ -75,6 +76,8 @@
       <ol id="p50-rules" class="p50-rules"></ol>
       <button id="p50-add-rule" class="link-btn">+ nova regra</button>
 
+      <section id="p50-history" class="p50-history-panel" hidden></section>
+
       <div class="p50-folders" id="p50-folders">
         <!-- geradas em JS: Manhã / Fitness / Ler / Skill -->
       </div>
@@ -113,5 +116,6 @@
 </template>
 
 <script type="module" src="./app.js"></script>
+<script type="module" src="./p50-history.js"></script>
 </body>
 </html>
