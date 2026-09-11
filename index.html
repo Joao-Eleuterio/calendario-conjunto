@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Calendário Conjunto</title>
+<meta name="description" content="Calendário partilhado, dia a dia e Project 50 — João & Inês" />
+<meta name="theme-color" content="#F1EFE6" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<!-- Ecrã de escolha de identidade (primeira visita) -->
+<div id="identity-screen" class="identity-screen" hidden>
+  <div class="identity-card">
+    <p class="identity-eyebrow">Calendário Conjunto</p>
+    <h1>Quem és tu?</h1>
+    <p class="identity-sub">Isto fica guardado neste telemóvel/navegador.</p>
+    <div class="identity-buttons">
+      <button class="identity-btn joao" data-person="joao">João</button>
+      <button class="identity-btn ines" data-person="ines">Inês</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <span class="topbar-title">Calendário Conjunto</span>
+    <button id="identity-pill" class="identity-pill" type="button"></button>
+  </header>
+
+  <main id="views">
+
+    <!-- ABA DIA -->
+    <section id="view-dia" class="view">
+      <div class="day-nav">
+        <button id="day-prev" class="nav-arrow" aria-label="Dia anterior">‹</button>
+        <div class="day-heading">
+          <p id="day-weekday" class="day-weekday"></p>
+          <h2 id="day-date" class="day-date"></h2>
+        </div>
+        <button id="day-next" class="nav-arrow" aria-label="Dia seguinte">›</button>
+      </div>
+      <button id="day-today-btn" class="link-btn">Ir para hoje</button>
+
+      <div class="day-columns" id="day-columns">
+        <!-- geradas em JS: conjunto / joao / ines -->
+      </div>
+    </section>
+
+    <!-- ABA MÊS -->
+    <section id="view-mes" class="view" hidden>
+      <div class="month-nav">
+        <button id="month-prev" class="nav-arrow" aria-label="Mês anterior">‹</button>
+        <h2 id="month-title" class="month-title"></h2>
+        <button id="month-next" class="nav-arrow" aria-label="Mês seguinte">›</button>
+      </div>
+      <div class="weekday-row">
+        <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+      </div>
+      <div id="month-grid" class="month-grid"></div>
+      <p class="month-hint">Toca num dia para abrir a lista. O ✕ dourado só aparece quando os dois marcarem o dia.</p>
+    </section>
+
+    <!-- ABA PROJECT 50 -->
+    <section id="view-p50" class="view" hidden>
+      <h2 class="section-title">Project 50 — regras</h2>
+      <ol id="p50-rules" class="p50-rules"></ol>
+      <button id="p50-add-rule" class="link-btn">+ nova regra</button>
+
+      <div class="p50-folders" id="p50-folders">
+        <!-- geradas em JS: Manhã / Fitness / Ler / Skill -->
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-tab="dia">
+      <span class="tab-icon">☉</span><span>Dia</span>
+    </button>
+    <button class="tab-btn" data-tab="mes">
+      <span class="tab-icon">▦</span><span>Mês</span>
+    </button>
+    <button class="tab-btn" data-tab="p50">
+      <span class="tab-icon">◎</span><span>Project 50</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- Modal genérico: adicionar/editar -->
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+  <div class="modal" id="modal-box"></div>
+</div>
+
+<template id="tpl-checklist-item">
+  <li class="task">
+    <label class="task-check">
+      <input type="checkbox" />
+      <span class="task-title"></span>
+    </label>
+    <div class="task-meta"></div>
+    <button class="task-delete" aria-label="Apagar">✕</button>
+  </li>
+</template>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
