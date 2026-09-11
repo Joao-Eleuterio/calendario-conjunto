@@ -1,4 +1,4 @@
-const CACHE = "cc-shell-v1";
+const CACHE = "cc-shell-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -22,19 +22,32 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
-// App shell: cache-first. Tudo o resto (Supabase, etc.): direto à rede.
+// App shell: tenta sempre a versão mais recente da rede e usa cache como fallback offline.
 self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
+
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin) return; // deixa passar pedidos ao Supabase
+  if (url.origin !== self.location.origin) return; // deixa passar pedidos ao Supabase e outros externos
 
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request).then((resp) => {
-        const clone = resp.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, clone));
+    fetch(e.request)
+      .then((resp) => {
+        if (resp && resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, clone));
+        }
         return resp;
-      }).catch(() => cached);
-    })
+      })
+      .catch(async () => {
+        const cached = await caches.match(e.request);
+        if (cached) return cached;
+
+        if (e.request.mode === "navigate") {
+          const shell = await caches.match("./index.html");
+          if (shell) return shell;
+        }
+
+        return Response.error();
+      })
   );
 });
