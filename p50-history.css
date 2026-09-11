@@ -1,0 +1,204 @@
+/* ===== Project 50 — histórico diário ===== */
+.p50-history-panel {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper-raised);
+  --p50-history-accent: var(--conjunto);
+}
+
+.p50-history-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.p50-history-head h3 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.p50-history-head p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.p50-history-toggle {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.p50-history-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 14px;
+}
+
+.p50-history-day {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 7px 3px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.p50-history-day.today {
+  border-style: dashed;
+}
+
+.p50-history-day.selected {
+  border-color: var(--p50-history-accent);
+  box-shadow: inset 0 0 0 1px var(--p50-history-accent);
+}
+
+.p50-history-day.complete .p50-history-count {
+  color: var(--p50-history-accent);
+}
+
+.p50-history-date {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.58rem;
+  text-transform: capitalize;
+}
+
+.p50-history-count {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.p50-history-bar {
+  display: block;
+  width: calc(100% - 6px);
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.p50-history-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--p50-history-accent);
+}
+
+.p50-history-detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.p50-history-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.p50-history-detail-head h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.p50-history-detail-head p {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.p50-history-percent {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--p50-history-accent);
+}
+
+.p50-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.p50-history-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.p50-history-item.done {
+  color: var(--ink);
+}
+
+.p50-history-status {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.p50-history-item.done .p50-history-status {
+  border-color: var(--p50-history-accent);
+  color: var(--p50-history-accent);
+}
+
+.p50-history-rule-text {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.p50-history-time {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.p50-history-empty,
+.p50-history-error {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 370px) {
+  .p50-history-panel { padding: 13px; }
+  .p50-history-grid { gap: 4px; }
+  .p50-history-date { font-size: 0.54rem; }
+  .p50-history-count { font-size: 0.82rem; }
+}
