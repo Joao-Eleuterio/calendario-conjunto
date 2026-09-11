@@ -1,9 +1,11 @@
-const CACHE = "cc-shell-v2";
+const CACHE = "cc-shell-v3";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./p50-history.css",
   "./app.js",
+  "./p50-history.js",
   "./config.js",
   "./manifest.json",
   "./icons/icon-192.png",
