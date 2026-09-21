@@ -15,10 +15,17 @@ create table if not exists events (
   owner        text not null check (owner in ('conjunto','joao','ines')),
   done         boolean not null default false,
   created_by   text not null check (created_by in ('joao','ines')),
+  recurrence_id uuid,
+  recurrence_rule jsonb,
   created_at   timestamptz not null default now()
 );
 
 create index if not exists events_date_idx on events (event_date);
+create index if not exists events_recurrence_idx on events (recurrence_id);
+
+-- Migração segura para instalações já existentes.
+alter table events add column if not exists recurrence_id uuid;
+alter table events add column if not exists recurrence_rule jsonb;
 
 -- ============================================================
 -- 2. CONFIRMAÇÃO CONJUNTA DO DIA (o "X" no calendário mensal)
