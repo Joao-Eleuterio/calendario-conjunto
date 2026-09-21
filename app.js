@@ -20,7 +20,25 @@ function todayISO() { return toISO(new Date()); }
 function addDays(iso, n) { const d = fromISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
 function addMonths(iso, n) { const d = fromISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
 function addYears(iso, n) { const d = fromISO(iso), m = d.getMonth(); d.setFullYear(d.getFullYear()+n); if (d.getMonth() !== m) d.setDate(0); return toISO(d); }
+function addMonths(iso, n) { const d = fromISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
+function addYears(iso, n) { const d = fromISO(iso), m = d.getMonth(); d.setFullYear(d.getFullYear()+n); if (d.getMonth() !== m) d.setDate(0); return toISO(d); }
 function isPastOrToday(iso) { return iso <= todayISO(); }
+function newSeriesId() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function recurrenceDates(start, rule) {
+  if (!rule || rule.type === "none") return [start];
+  const out = [], max = Math.min(Number(rule.count) || 100, 500);
+  let current = start;
+  const until = rule.until || addYears(start, 2);
+  while (out.length < max && current <= until) {
+    if (rule.type !== "weekdays" || ![0,6].includes(fromISO(current).getDay())) out.push(current);
+    if (rule.type === "daily" || rule.type === "weekdays") current = addDays(current, 1);
+    else if (rule.type === "weekly") current = addDays(current, 7);
+    else if (rule.type === "monthly") current = addMonths(current, 1);
+    else if (rule.type === "yearly") current = addYears(current, 1);
+    else break;
+  }
+  return out;
+}
 function newSeriesId() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 function recurrenceDates(start, rule) {
   if (!rule || rule.type === "none") return [start];
@@ -209,6 +227,24 @@ function openSeriesDeleteModal(ev) {
 function recurrenceLabel(type) {
   return ({ none:"Não se repete", daily:"Todos os dias", weekdays:"Dias úteis (2.ª a 6.ª)", weekly:"Todas as semanas", monthly:"Todos os meses", yearly:"Todos os anos" })[type] || "Não se repete";
 }
+function openSeriesDeleteModal(ev) {
+  const box = document.getElementById("modal-box");
+  box.innerHTML = `
+    <h3>Apagar evento recorrente</h3>
+    <p class="modal-copy">Este item faz parte de uma série. O que queres apagar?</p>
+    <div class="series-actions">
+      <button class="series-choice" id="del-one"><strong>Só este evento</strong><span>Os restantes mantêm-se.</span></button>
+      <button class="series-choice" id="del-following"><strong>Este e os seguintes</strong><span>Mantém apenas os anteriores.</span></button>
+      <button class="series-choice danger" id="del-all"><strong>Todos os eventos</strong><span>Apaga toda a série.</span></button>
+    </div>
+    <button class="btn-secondary full-btn" id="del-cancel">Cancelar</button>`;
+  openModal();
+  box.querySelector("#del-cancel").addEventListener("click", closeModal);
+  box.querySelector("#del-one").addEventListener("click", async () => { await sb.from("events").delete().eq("id", ev.id); closeModal(); });
+  box.querySelector("#del-following").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id).gte("event_date", ev.event_date); closeModal(); });
+  box.querySelector("#del-all").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id); closeModal(); });
+}
+
 function openTaskModal({ owner, date }) {
   const box = document.getElementById("modal-box");
   box.innerHTML = `
