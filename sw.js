@@ -1,13 +1,13 @@
-const CACHE = "cc-shell-v4";
+const CACHE = "cc-shell-v5";
 const SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./p50-history.css",
-  "./app.js",
+  "./styles.css?v=5",
+  "./p50-history.css?v=5",
+  "./app.js?v=5",
   "./recurrence.js",
   "./supabase-client.js",
-  "./p50-history.js",
+  "./p50-history.js?v=5",
   "./config.js",
   "./manifest.json",
   "./icons/icon-192.png",
