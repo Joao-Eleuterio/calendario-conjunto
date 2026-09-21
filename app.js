@@ -18,7 +18,25 @@ function fromISO(iso) {
 }
 function todayISO() { return toISO(new Date()); }
 function addDays(iso, n) { const d = fromISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
+function addMonths(iso, n) { const d = fromISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
+function addYears(iso, n) { const d = fromISO(iso), m = d.getMonth(); d.setFullYear(d.getFullYear()+n); if (d.getMonth() !== m) d.setDate(0); return toISO(d); }
 function isPastOrToday(iso) { return iso <= todayISO(); }
+function newSeriesId() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function recurrenceDates(start, rule) {
+  if (!rule || rule.type === "none") return [start];
+  const out = [], max = Math.min(Number(rule.count) || 100, 500);
+  let current = start;
+  const until = rule.until || addYears(start, 2);
+  while (out.length < max && current <= until) {
+    if (rule.type !== "weekdays" || ![0,6].includes(fromISO(current).getDay())) out.push(current);
+    if (rule.type === "daily" || rule.type === "weekdays") current = addDays(current, 1);
+    else if (rule.type === "weekly") current = addDays(current, 7);
+    else if (rule.type === "monthly") current = addMonths(current, 1);
+    else if (rule.type === "yearly") current = addYears(current, 1);
+    else break;
+  }
+  return out;
+}
 
 // ---------- identidade ----------
 function getIdentity() { return localStorage.getItem("cc_identity"); }
@@ -155,7 +173,11 @@ function buildDaySection(owner, items) {
       await sb.from("events").update({ done: checkbox.checked }).eq("id", ev.id);
     });
     tpl.querySelector(".task-delete").addEventListener("click", async () => {
-      if (confirm("Apagar esta tarefa?")) await sb.from("events").delete().eq("id", ev.id);
+      if (!ev.recurrence_id) {
+        if (confirm("Apagar esta tarefa?")) await sb.from("events").delete().eq("id", ev.id);
+        return;
+      }
+      openSeriesDeleteModal(ev);
     });
     list.appendChild(li);
   }
@@ -166,6 +188,27 @@ function buildDaySection(owner, items) {
 // ================================================================
 // MODAL: nova tarefa / evento
 // ================================================================
+function openSeriesDeleteModal(ev) {
+  const box = document.getElementById("modal-box");
+  box.innerHTML = `
+    <h3>Apagar evento recorrente</h3>
+    <p class="modal-copy">Este item faz parte de uma série. O que queres apagar?</p>
+    <div class="series-actions">
+      <button class="series-choice" id="del-one"><strong>Só este evento</strong><span>Os restantes mantêm-se.</span></button>
+      <button class="series-choice" id="del-following"><strong>Este e os seguintes</strong><span>Mantém apenas os anteriores.</span></button>
+      <button class="series-choice danger" id="del-all"><strong>Todos os eventos</strong><span>Apaga toda a série.</span></button>
+    </div>
+    <button class="btn-secondary full-btn" id="del-cancel">Cancelar</button>`;
+  openModal();
+  box.querySelector("#del-cancel").addEventListener("click", closeModal);
+  box.querySelector("#del-one").addEventListener("click", async () => { await sb.from("events").delete().eq("id", ev.id); closeModal(); });
+  box.querySelector("#del-following").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id).gte("event_date", ev.event_date); closeModal(); });
+  box.querySelector("#del-all").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id); closeModal(); });
+}
+
+function recurrenceLabel(type) {
+  return ({ none:"Não se repete", daily:"Todos os dias", weekdays:"Dias úteis (2.ª a 6.ª)", weekly:"Todas as semanas", monthly:"Todos os meses", yearly:"Todos os anos" })[type] || "Não se repete";
+}
 function openTaskModal({ owner, date }) {
   const box = document.getElementById("modal-box");
   box.innerHTML = `
@@ -173,6 +216,27 @@ function openTaskModal({ owner, date }) {
     <div class="field"><label>Título</label><input id="f-title" type="text" placeholder="Ex: Marcar médico" /></div>
     <div class="field"><label>Data</label><input id="f-date" type="date" value="${date}" /></div>
     <div class="field"><label>Hora (opcional)</label><input id="f-time" type="time" /></div>
+    <div class="field"><label>Repetir</label>
+      <select id="f-repeat">
+        <option value="none">Não se repete</option>
+        <option value="daily">Todos os dias</option>
+        <option value="weekdays">Dias úteis (2.ª a 6.ª)</option>
+        <option value="weekly">Todas as semanas</option>
+        <option value="monthly">Todos os meses</option>
+        <option value="yearly">Todos os anos</option>
+      </select>
+    </div>
+    <div id="f-repeat-end" class="repeat-end" hidden>
+      <div class="field"><label>Termina</label>
+        <select id="f-end-mode">
+          <option value="never">Nunca (até 2 anos)</option>
+          <option value="date">Numa data</option>
+          <option value="count">Após um número de ocorrências</option>
+        </select>
+      </div>
+      <div class="field" id="f-until-wrap" hidden><label>Data final</label><input id="f-until" type="date" /></div>
+      <div class="field" id="f-count-wrap" hidden><label>N.º de ocorrências</label><input id="f-count" type="number" min="1" max="500" value="10" /></div>
+    </div>
     <div class="field"><label>Para quem</label>
       <div class="owner-pick" id="f-owner">
         <button data-owner="conjunto" class="conjunto">Conjunto</button>
@@ -194,6 +258,13 @@ function openTaskModal({ owner, date }) {
   });
   paintOwner();
 
+  const repeat = box.querySelector("#f-repeat"), repeatEnd = box.querySelector("#f-repeat-end");
+  const endMode = box.querySelector("#f-end-mode"), untilWrap = box.querySelector("#f-until-wrap"), countWrap = box.querySelector("#f-count-wrap");
+  const syncRepeat = () => { repeatEnd.hidden = repeat.value === "none"; };
+  const syncEnd = () => { untilWrap.hidden = endMode.value !== "date"; countWrap.hidden = endMode.value !== "count"; };
+  repeat.addEventListener("change", syncRepeat); endMode.addEventListener("change", syncEnd);
+  syncRepeat(); syncEnd();
+
   openModal();
   box.querySelector("#f-cancel").addEventListener("click", closeModal);
   box.querySelector("#f-save").addEventListener("click", async () => {
@@ -207,8 +278,28 @@ function openTaskModal({ owner, date }) {
       created_by: state.person,
       done: false,
     };
-    const { error } = await sb.from("events").insert(payload);
-    if (error) { alert("Não foi possível guardar: " + error.message); return; }
+    const repeatType = box.querySelector("#f-repeat").value;
+    if (repeatType === "none") {
+      const { error } = await sb.from("events").insert(payload);
+      if (error) { alert("Não foi possível guardar: " + error.message); return; }
+    } else {
+      const endMode = box.querySelector("#f-end-mode").value;
+      const rule = { type: repeatType };
+      if (endMode === "date") {
+        rule.until = box.querySelector("#f-until").value;
+        if (!rule.until || rule.until < payload.event_date) { alert("Escolhe uma data final igual ou posterior à data inicial."); return; }
+        rule.count = 500;
+      } else if (endMode === "count") {
+        rule.count = Math.max(1, Math.min(500, Number(box.querySelector("#f-count").value) || 1));
+      } else {
+        rule.until = addYears(payload.event_date, 2);
+        rule.count = 500;
+      }
+      const seriesId = newSeriesId();
+      const rows = recurrenceDates(payload.event_date, rule).map(event_date => ({ ...payload, event_date, recurrence_id: seriesId, recurrence_rule: rule }));
+      const { error } = await sb.from("events").insert(rows);
+      if (error) { alert("Não foi possível guardar a recorrência: " + error.message); return; }
+    }
     closeModal();
   });
 }
