@@ -286,3 +286,14 @@ main#views { flex: 1; padding: 4px 20px 24px; }
 @media (prefers-reduced-motion: reduce) {
   .view { animation: none; }
 }
+/* ===== Recorrência ===== */
+.repeat-end { margin: -2px 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-s); background: #faf9f5; }
+.repeat-end .field:last-child { margin-bottom: 0; }
+.modal-copy { margin: -4px 0 14px; color: var(--ink-soft); font-size: .88rem; line-height: 1.45; }
+.series-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.series-choice { text-align: left; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--paper); padding: 11px 12px; color: var(--ink); cursor: pointer; }
+.series-choice strong, .series-choice span { display: block; }
+.series-choice span { margin-top: 2px; color: var(--ink-soft); font-size: .78rem; }
+.series-choice.danger strong { color: #9b2c2c; }
+.full-btn { width: 100%; }
+@media (min-width: 481px) { .modal-backdrop { align-items: center; } .modal { border-radius: var(--radius-l); max-height: 92vh; overflow-y: auto; } }
