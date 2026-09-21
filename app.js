@@ -1,7 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { addYears, newSeriesId, recurrenceDates } from "./recurrence.js";
+import { sb } from "./supabase-client.js";
 
 const PERSON_LABEL = { conjunto: "Conjunto", joao: "João", ines: "Inês" };
 const WEEKDAYS_PT = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
@@ -18,25 +16,7 @@ function fromISO(iso) {
 }
 function todayISO() { return toISO(new Date()); }
 function addDays(iso, n) { const d = fromISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
-function addMonths(iso, n) { const d = fromISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
-function addYears(iso, n) { const d = fromISO(iso), m = d.getMonth(); d.setFullYear(d.getFullYear()+n); if (d.getMonth() !== m) d.setDate(0); return toISO(d); }
 function isPastOrToday(iso) { return iso <= todayISO(); }
-function newSeriesId() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
-function recurrenceDates(start, rule) {
-  if (!rule || rule.type === "none") return [start];
-  const out = [], max = Math.min(Number(rule.count) || 100, 500);
-  let current = start;
-  const until = rule.until || addYears(start, 2);
-  while (out.length < max && current <= until) {
-    if (rule.type !== "weekdays" || ![0,6].includes(fromISO(current).getDay())) out.push(current);
-    if (rule.type === "daily" || rule.type === "weekdays") current = addDays(current, 1);
-    else if (rule.type === "weekly") current = addDays(current, 7);
-    else if (rule.type === "monthly") current = addMonths(current, 1);
-    else if (rule.type === "yearly") current = addYears(current, 1);
-    else break;
-  }
-  return out;
-}
 
 // ---------- identidade ----------
 function getIdentity() { return localStorage.getItem("cc_identity"); }
@@ -51,7 +31,50 @@ const state = {
   monthCursor: (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })(),
   monthEvents: [],   // eventos do mês visível (para os pontinhos)
   monthMarks: [],    // day_marks do mês visível
+  recurrenceSupport: "unknown",
 };
+
+let recurrenceSupportPromise = null;
+
+function isMissingRecurrenceSchema(error) {
+  const code = String(error?.code || "").toUpperCase();
+  const message = [error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
+  const namesRecurrenceColumn = message.includes("recurrence_id") || message.includes("recurrence_rule");
+  return namesRecurrenceColumn && (
+    code === "42703" ||
+    code === "PGRST204" ||
+    message.includes("does not exist") ||
+    message.includes("schema cache")
+  );
+}
+
+async function detectRecurrenceSupport() {
+  if (state.recurrenceSupport === "available") return true;
+  if (state.recurrenceSupport === "unavailable") return false;
+  if (recurrenceSupportPromise) return recurrenceSupportPromise;
+
+  recurrenceSupportPromise = (async () => {
+    const { error } = await sb.from("events").select("recurrence_id, recurrence_rule").limit(1);
+    if (!error) {
+      state.recurrenceSupport = "available";
+      return true;
+    }
+    if (isMissingRecurrenceSchema(error)) {
+      state.recurrenceSupport = "unavailable";
+      console.info("Recorrência indisponível: a migração da base de dados ainda não foi aplicada.");
+      return false;
+    }
+
+    console.warn("Não foi possível confirmar o suporte de recorrência.", error);
+    return null;
+  })();
+
+  try {
+    return await recurrenceSupportPromise;
+  } finally {
+    recurrenceSupportPromise = null;
+  }
+}
 
 // ================================================================
 // BOOT
@@ -83,6 +106,7 @@ function startApp() {
   renderDay();
   renderMonth();
   renderP50();
+  void detectRecurrenceSupport();
   subscribeRealtime();
   registerSW();
 }
@@ -201,41 +225,31 @@ function openSeriesDeleteModal(ev) {
     <button class="btn-secondary full-btn" id="del-cancel">Cancelar</button>`;
   openModal();
   box.querySelector("#del-cancel").addEventListener("click", closeModal);
-  box.querySelector("#del-one").addEventListener("click", async () => { await sb.from("events").delete().eq("id", ev.id); closeModal(); });
-  box.querySelector("#del-following").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id).gte("event_date", ev.event_date); closeModal(); });
-  box.querySelector("#del-all").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id); closeModal(); });
-}
-
-function recurrenceLabel(type) {
-  return ({ none:"Não se repete", daily:"Todos os dias", weekdays:"Dias úteis (2.ª a 6.ª)", weekly:"Todas as semanas", monthly:"Todos os meses", yearly:"Todos os anos" })[type] || "Não se repete";
-}
-function openSeriesDeleteModal(ev) {
-  const box = document.getElementById("modal-box");
-  box.innerHTML = `
-    <h3>Apagar evento recorrente</h3>
-    <p class="modal-copy">Este item faz parte de uma série. O que queres apagar?</p>
-    <div class="series-actions">
-      <button class="series-choice" id="del-one"><strong>Só este evento</strong><span>Os restantes mantêm-se.</span></button>
-      <button class="series-choice" id="del-following"><strong>Este e os seguintes</strong><span>Mantém apenas os anteriores.</span></button>
-      <button class="series-choice danger" id="del-all"><strong>Todos os eventos</strong><span>Apaga toda a série.</span></button>
-    </div>
-    <button class="btn-secondary full-btn" id="del-cancel">Cancelar</button>`;
-  openModal();
-  box.querySelector("#del-cancel").addEventListener("click", closeModal);
-  box.querySelector("#del-one").addEventListener("click", async () => { await sb.from("events").delete().eq("id", ev.id); closeModal(); });
-  box.querySelector("#del-following").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id).gte("event_date", ev.event_date); closeModal(); });
-  box.querySelector("#del-all").addEventListener("click", async () => { await sb.from("events").delete().eq("recurrence_id", ev.recurrence_id); closeModal(); });
+  const runDelete = async (query) => {
+    box.querySelectorAll("button").forEach(button => { button.disabled = true; });
+    const { error } = await query;
+    if (error) {
+      box.querySelectorAll("button").forEach(button => { button.disabled = false; });
+      alert("Não foi possível apagar: " + error.message);
+      return;
+    }
+    closeModal();
+  };
+  box.querySelector("#del-one").addEventListener("click", () => runDelete(sb.from("events").delete().eq("id", ev.id)));
+  box.querySelector("#del-following").addEventListener("click", () => runDelete(sb.from("events").delete().eq("recurrence_id", ev.recurrence_id).gte("event_date", ev.event_date)));
+  box.querySelector("#del-all").addEventListener("click", () => runDelete(sb.from("events").delete().eq("recurrence_id", ev.recurrence_id)));
 }
 
 function openTaskModal({ owner, date }) {
   const box = document.getElementById("modal-box");
+  const recurrenceUnavailable = state.recurrenceSupport === "unavailable";
   box.innerHTML = `
     <h3>Novo item</h3>
     <div class="field"><label>Título</label><input id="f-title" type="text" placeholder="Ex: Marcar médico" /></div>
     <div class="field"><label>Data</label><input id="f-date" type="date" value="${date}" /></div>
     <div class="field"><label>Hora (opcional)</label><input id="f-time" type="time" /></div>
     <div class="field"><label>Repetir</label>
-      <select id="f-repeat">
+      <select id="f-repeat" ${recurrenceUnavailable ? "disabled" : ""}>
         <option value="none">Não se repete</option>
         <option value="daily">Todos os dias</option>
         <option value="weekdays">Dias úteis (2.ª a 6.ª)</option>
@@ -243,6 +257,7 @@ function openTaskModal({ owner, date }) {
         <option value="monthly">Todos os meses</option>
         <option value="yearly">Todos os anos</option>
       </select>
+      ${recurrenceUnavailable ? '<p class="field-help">Recorrência indisponível até a migração da base de dados ser aplicada. Ainda podes guardar eventos normais.</p>' : ""}
     </div>
     <div id="f-repeat-end" class="repeat-end" hidden>
       <div class="field"><label>Termina</label>
@@ -285,7 +300,8 @@ function openTaskModal({ owner, date }) {
 
   openModal();
   box.querySelector("#f-cancel").addEventListener("click", closeModal);
-  box.querySelector("#f-save").addEventListener("click", async () => {
+  const saveButton = box.querySelector("#f-save");
+  saveButton.addEventListener("click", async () => {
     const title = box.querySelector("#f-title").value.trim();
     if (!title) { box.querySelector("#f-title").focus(); return; }
     const payload = {
@@ -297,28 +313,54 @@ function openTaskModal({ owner, date }) {
       done: false,
     };
     const repeatType = box.querySelector("#f-repeat").value;
-    if (repeatType === "none") {
-      const { error } = await sb.from("events").insert(payload);
-      if (error) { alert("Não foi possível guardar: " + error.message); return; }
-    } else {
-      const endMode = box.querySelector("#f-end-mode").value;
-      const rule = { type: repeatType };
-      if (endMode === "date") {
-        rule.until = box.querySelector("#f-until").value;
-        if (!rule.until || rule.until < payload.event_date) { alert("Escolhe uma data final igual ou posterior à data inicial."); return; }
-        rule.count = 500;
-      } else if (endMode === "count") {
-        rule.count = Math.max(1, Math.min(500, Number(box.querySelector("#f-count").value) || 1));
+    saveButton.disabled = true;
+    saveButton.textContent = "A guardar…";
+
+    try {
+      if (repeatType === "none") {
+        const { error } = await sb.from("events").insert(payload);
+        if (error) throw error;
       } else {
-        rule.until = addYears(payload.event_date, 2);
-        rule.count = 500;
+        const recurrenceSupported = await detectRecurrenceSupport();
+        if (recurrenceSupported !== true) {
+          alert("A recorrência ainda não está disponível na base de dados. O evento não foi guardado; escolhe ‘Não se repete’ para guardar um evento normal.");
+          return;
+        }
+
+        const endMode = box.querySelector("#f-end-mode").value;
+        const rule = { type: repeatType };
+        if (endMode === "date") {
+          rule.until = box.querySelector("#f-until").value;
+          if (!rule.until || rule.until < payload.event_date) {
+            alert("Escolhe uma data final igual ou posterior à data inicial.");
+            return;
+          }
+        } else if (endMode === "count") {
+          rule.count = Math.max(1, Math.min(500, Number(box.querySelector("#f-count").value) || 1));
+        } else {
+          rule.until = addYears(payload.event_date, 2);
+        }
+
+        const seriesId = newSeriesId();
+        const rows = recurrenceDates(payload.event_date, rule).map(event_date => ({
+          ...payload,
+          event_date,
+          recurrence_id: seriesId,
+          recurrence_rule: rule,
+        }));
+        const { error } = await sb.from("events").insert(rows);
+        if (error) throw error;
       }
-      const seriesId = newSeriesId();
-      const rows = recurrenceDates(payload.event_date, rule).map(event_date => ({ ...payload, event_date, recurrence_id: seriesId, recurrence_rule: rule }));
-      const { error } = await sb.from("events").insert(rows);
-      if (error) { alert("Não foi possível guardar a recorrência: " + error.message); return; }
+      closeModal();
+    } catch (error) {
+      const label = repeatType === "none" ? "Não foi possível guardar: " : "Não foi possível guardar a recorrência: ";
+      alert(label + (error?.message || "erro desconhecido"));
+    } finally {
+      if (!document.getElementById("modal-backdrop").hidden) {
+        saveButton.disabled = false;
+        saveButton.textContent = "Guardar";
+      }
     }
-    closeModal();
   });
 }
 
@@ -588,7 +630,9 @@ function subscribeRealtime() {
 // ================================================================
 function registerSW() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" })
+      .then(registration => registration.update())
+      .catch(error => console.warn("Não foi possível atualizar o modo offline.", error));
   }
 }
 

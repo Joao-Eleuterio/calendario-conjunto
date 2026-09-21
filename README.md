@@ -17,6 +17,13 @@ Stack: HTML/CSS/JS puro (sem build) + Supabase (base de dados, storage e realtim
    - **Project URL**
    - **anon public key**
 
+### Atualizar uma base de dados já existente
+
+Para ativar a recorrência numa instalação anterior, corre no SQL Editor o ficheiro
+[`supabase/migrations/20260921_add_event_recurrence.sql`](./supabase/migrations/20260921_add_event_recurrence.sql).
+A app continua a abrir e a guardar eventos normais enquanto esta migração não for aplicada;
+nesse caso, a opção de recorrência fica indisponível de forma controlada.
+
 ## 2. Configurar a app
 
 Abre `config.js` e substitui os dois valores:
@@ -54,7 +61,10 @@ guardado só naquele telemóvel/navegador (não é preciso fazer login com passw
 
 - **Dia** — mostra o dia atual dividido em três blocos: Conjunto, João, Inês.
   Cada bloco é uma lista de tarefas com checkbox, hora opcional e botão de
-  apagar. O `+` de cada bloco já vem pré-selecionado para aquela pessoa.
+  apagar. O `+` de cada bloco já vem pré-selecionado para aquela pessoa. Um item
+  pode repetir-se diariamente, em dias úteis, semanalmente, mensalmente ou
+  anualmente; ao apagar uma recorrência podes escolher uma ocorrência, as
+  seguintes ou a série inteira.
 - **Mês** — grelha estilo Google Calendar, com pontinhos coloridos por
   quem tem coisas nesse dia. Em qualquer dia já passado (ou hoje) aparece um
   pequeno botão redondo no canto — cada um marca o seu; quando os dois
@@ -86,9 +96,11 @@ calendario-conjunto/
 ├── index.html          # esqueleto da app
 ├── styles.css          # estilos
 ├── app.js              # toda a lógica (Supabase, vistas, realtime)
+├── recurrence.js       # cálculo das datas recorrentes
+├── supabase-client.js  # cliente Supabase partilhado pelos módulos
 ├── config.js           # as tuas chaves do Supabase (edita isto)
 ├── manifest.json        # manifest da PWA
 ├── sw.js                # service worker (cache da app shell)
 ├── icons/               # ícones da PWA
-└── supabase/schema.sql  # schema completo a correr no Supabase
+└── supabase/            # schema completo e migrações incrementais
 ```

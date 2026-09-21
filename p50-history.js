@@ -1,7 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-
-const sbHistory = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { sb as sbHistory } from "./supabase-client.js";
 const PERSON_LABEL = { joao: "João", ines: "Inês" };
 const HISTORY_DAYS_COLLAPSED = 14;
 const HISTORY_DAYS_EXPANDED = 50;

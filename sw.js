@@ -1,10 +1,12 @@
-const CACHE = "cc-shell-v3";
+const CACHE = "cc-shell-v4";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./p50-history.css",
   "./app.js",
+  "./recurrence.js",
+  "./supabase-client.js",
   "./p50-history.js",
   "./config.js",
   "./manifest.json",
@@ -32,7 +34,7 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return; // deixa passar pedidos ao Supabase e outros externos
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-cache" })
       .then((resp) => {
         if (resp && resp.ok) {
           const clone = resp.clone();
