@@ -1,5 +1,5 @@
 import { GOOGLE_CLIENT_ID } from "./config.js";
-import { calendarColor, eventColor, eventDays, localDateKey, timeLabel } from "./google-calendar-data.js";
+import { calendarColor, calendarRange, colorText, eventColor, eventDays, localDateKey, shiftCalendarDate, timeLabel } from "./google-calendar-data.js";
 
 const CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 const EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
@@ -7,8 +7,8 @@ const SCOPE = `openid email ${CALENDAR_LIST_SCOPE} ${EVENTS_SCOPE}`;
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const LABELS = { joao: "João", ines: "Inês" };
 const sessions = { joao: null, ines: null }; // access tokens never enter localStorage or Supabase
-const month = { year: new Date().getFullYear(), index: new Date().getMonth() };
 let selectedDay = localDateKey(new Date());
+let calendarView = "month";
 let requestId = 0;
 let currentData = null;
 const visibleByPerson = { joao: new Map(), ines: new Map() };
@@ -43,11 +43,9 @@ async function loadCalendars(token) {
   return calendars;
 }
 
-async function loadCalendarEvents(calendar, session, identity) {
-  const start = new Date(month.year, month.index, 1);
-  const end = new Date(month.year, month.index + 1, 1);
+async function loadCalendarEvents(calendar, session, identity, range) {
   const params = new URLSearchParams({
-    timeMin: start.toISOString(), timeMax: end.toISOString(),
+    timeMin: range.start.toISOString(), timeMax: range.end.toISOString(),
     singleEvents: "true", orderBy: "startTime", maxResults: "2500",
     fields: "items(id,summary,start,end,htmlLink,status,colorId),nextPageToken",
   });
@@ -74,71 +72,119 @@ function renderCalendarChoices(data, person) {
     const name = document.createElement("span"); name.textContent = calendar.summaryOverride || calendar.summary || "Calendário";
     input.addEventListener("change", () => {
       visibleByPerson[person].set(calendar.id, input.checked);
-      if (person === getPerson() && currentData === data) renderGrid(data);
+      if (person === getPerson() && currentData === data) renderCalendarView(data);
     });
     label.append(input, dot, name); container.appendChild(label);
   }
 }
 
-function renderGrid(data) {
-  const events = data.events.filter(event => visibleByPerson[getPerson()].get(event.calendarId));
-  const first = new Date(month.year, month.index, 1);
-  const last = new Date(month.year, month.index + 1, 1);
+function sortedEvents(events) {
+  return [...events].sort((a, b) => {
+    if (!!a.start?.date !== !!b.start?.date) return a.start?.date ? -1 : 1;
+    return new Date(a.start?.dateTime || `${a.start?.date}T00:00:00`) - new Date(b.start?.dateTime || `${b.start?.date}T00:00:00`);
+  });
+}
+
+function eventCard(event, palette, dayKey) {
+  const color = eventColor(event, palette);
+  const card = document.createElement("article");
+  card.className = "google-event-card";
+  card.style.backgroundColor = color;
+  card.style.color = colorText(color);
+  const time = document.createElement("span"); time.className = "google-card-time";
+  const startDay = event.start?.dateTime && localDateKey(new Date(event.start.dateTime));
+  time.textContent = startDay && startDay !== dayKey ? "Continua" : timeLabel(event);
+  const title = document.createElement(event.htmlLink?.startsWith("https://calendar.google.com/") ? "a" : "span");
+  title.className = "google-card-title";
+  title.textContent = event.summary || "(Sem título)";
+  if (title.tagName === "A") { title.href = event.htmlLink; title.target = "_blank"; title.rel = "noopener noreferrer"; }
+  const source = document.createElement("small"); source.textContent = event.calendarName;
+  card.append(time, title, source);
+  return card;
+}
+
+function renderAgenda(container, events, palette, dayKey) {
+  container.replaceChildren();
+  if (!events.length) {
+    const empty = document.createElement("p"); empty.className = "google-empty";
+    empty.textContent = "Sem eventos neste dia."; container.appendChild(empty);
+  }
+  for (const event of sortedEvents(events)) container.appendChild(eventCard(event, palette, dayKey));
+}
+
+function renderCalendarView(data) {
+  const range = calendarRange(calendarView, selectedDay);
   const byDay = new Map();
-  for (const event of events) {
-    for (const day of eventDays(event, first, last)) {
+  for (const event of data.events.filter(item => visibleByPerson[getPerson()].get(item.calendarId))) {
+    for (const day of eventDays(event, range.start, range.end)) {
       if (!byDay.has(day)) byDay.set(day, []);
       byDay.get(day).push(event);
     }
   }
-  elt("google-month-title").textContent = `${MONTHS[month.index]} ${month.year}`;
-  const grid = elt("google-grid");
-  grid.replaceChildren();
-  for (let i = 0; i < (first.getDay() + 6) % 7; i++) grid.appendChild(document.createElement("span"));
-  for (let day = 1; day <= new Date(month.year, month.index + 1, 0).getDate(); day++) {
-    const date = localDateKey(new Date(month.year, month.index, day));
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "day-cell google-cell";
-    if (date === localDateKey(new Date())) button.classList.add("today");
-    if (date === selectedDay) button.classList.add("selected");
-    button.setAttribute("aria-label", `${day} de ${MONTHS[month.index]}, ${(byDay.get(date) || []).length} eventos`);
-    const number = document.createElement("span"); number.className = "num"; number.textContent = day;
-    button.appendChild(number);
-    if (byDay.has(date)) {
-      const dots = document.createElement("span"); dots.className = "google-dots";
-      for (const event of byDay.get(date).slice(0, 4)) {
-        const dot = document.createElement("span"); dot.className = "google-dot";
-        dot.style.backgroundColor = eventColor(event, data.palette);
-        dots.appendChild(dot);
-      }
-      button.appendChild(dots);
-    }
-    button.addEventListener("click", () => { selectedDay = date; renderGrid(data); });
-    grid.appendChild(button);
-  }
   const date = new Date(`${selectedDay}T12:00:00`);
-  elt("google-day-title").textContent = `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
-  const list = elt("google-events"); list.replaceChildren();
-  const todayEvents = (byDay.get(selectedDay) || []).sort((a, b) => {
-    if (!!a.start?.date !== !!b.start?.date) return a.start?.date ? -1 : 1;
-    return new Date(a.start?.dateTime || `${a.start?.date}T00:00:00`) - new Date(b.start?.dateTime || `${b.start?.date}T00:00:00`);
+  const endDay = new Date(range.end); endDay.setDate(endDay.getDate() - 1);
+  elt("google-month-title").textContent = calendarView === "month"
+    ? `${MONTHS[date.getMonth()]} ${date.getFullYear()}`
+    : calendarView === "week"
+      ? `${range.start.getDate()} ${MONTHS[range.start.getMonth()].slice(0, 3)} – ${endDay.getDate()} ${MONTHS[endDay.getMonth()].slice(0, 3)} ${endDay.getFullYear()}`
+      : new Intl.DateTimeFormat("pt-PT", { weekday: "long", day: "numeric", month: "long" }).format(date);
+  document.querySelectorAll("[data-google-view]").forEach(button => {
+    const active = button.dataset.googleView === calendarView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   });
-  if (!todayEvents.length) {
-    const empty = document.createElement("p"); empty.className = "google-empty"; empty.textContent = "Sem eventos neste dia."; list.appendChild(empty);
+  const isMonth = calendarView === "month";
+  elt("google-weekdays").hidden = !isMonth;
+  elt("google-grid").hidden = !isMonth;
+  elt("google-week").hidden = calendarView !== "week";
+  elt("google-day-title").hidden = calendarView !== "month";
+  elt("google-events").hidden = calendarView === "week";
+
+  if (isMonth) {
+    const grid = elt("google-grid"); grid.replaceChildren();
+    for (let i = 0; i < (range.start.getDay() + 6) % 7; i++) grid.appendChild(document.createElement("span"));
+    for (let day = 1; day <= endDay.getDate(); day++) {
+      const key = localDateKey(new Date(date.getFullYear(), date.getMonth(), day));
+      const items = sortedEvents(byDay.get(key) || []);
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "google-cell";
+      if (key === localDateKey(new Date())) button.classList.add("today");
+      if (key === selectedDay) button.classList.add("selected");
+      button.setAttribute("aria-label", `${day} de ${MONTHS[date.getMonth()]}, ${items.length} eventos`);
+      const number = document.createElement("span"); number.className = "google-cell-number"; number.textContent = day;
+      button.appendChild(number);
+      for (const event of items.slice(0, 2)) {
+        const chip = document.createElement("span"); chip.className = "google-event-chip";
+        const color = eventColor(event, data.palette);
+        chip.style.backgroundColor = color; chip.style.color = colorText(color);
+        chip.textContent = event.summary || "(Sem título)";
+        button.appendChild(chip);
+      }
+      if (items.length > 2) {
+        const more = document.createElement("small"); more.textContent = `+${items.length - 2}`;
+        button.appendChild(more);
+      }
+      button.addEventListener("click", () => { selectedDay = key; renderCalendarView(data); });
+      grid.appendChild(button);
+    }
   }
-  for (const event of todayEvents) {
-    const item = document.createElement("div"); item.className = "google-event";
-    item.style.borderLeftColor = eventColor(event, data.palette);
-    const time = document.createElement("span"); time.className = "google-time";
-    time.textContent = timeLabel(event);
-    const title = document.createElement(event.htmlLink?.startsWith("https://calendar.google.com/") ? "a" : "span");
-    title.textContent = event.summary || "(Sem título)";
-    if (title.tagName === "A") { title.href = event.htmlLink; title.target = "_blank"; title.rel = "noopener noreferrer"; }
-    const details = document.createElement("span"); details.className = "google-event-details";
-    const source = document.createElement("small"); source.textContent = event.calendarName;
-    details.append(title, source);
-    item.append(time, details); list.appendChild(item);
+  if (calendarView === "week") {
+    const week = elt("google-week"); week.replaceChildren();
+    for (let offset = 0; offset < 7; offset++) {
+      const day = new Date(range.start); day.setDate(day.getDate() + offset);
+      const key = localDateKey(day);
+      const section = document.createElement("section"); section.className = "google-week-day";
+      if (key === localDateKey(new Date())) section.classList.add("today");
+      const heading = document.createElement("h4");
+      heading.textContent = new Intl.DateTimeFormat("pt-PT", { weekday: "long", day: "numeric", month: "short" }).format(day);
+      section.appendChild(heading);
+      const cards = document.createElement("div"); cards.className = "google-events";
+      renderAgenda(cards, byDay.get(key) || [], data.palette, key);
+      section.appendChild(cards); week.appendChild(section);
+    }
+  } else {
+    elt("google-day-title").textContent = `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
+    renderAgenda(elt("google-events"), byDay.get(selectedDay) || [], data.palette, selectedDay);
   }
 }
 
@@ -168,7 +214,8 @@ export function initGoogleCalendar(personGetter) {
       ]);
       if (identity !== requestId || person !== getPerson()) return;
       const enriched = calendars.map(calendar => ({ ...calendar, color: calendarColor(calendar, palette) }));
-      const results = await Promise.allSettled(enriched.map(calendar => loadCalendarEvents(calendar, session, identity)));
+      const range = calendarRange(calendarView, selectedDay);
+      const results = await Promise.allSettled(enriched.map(calendar => loadCalendarEvents(calendar, session, identity, range)));
       if (identity !== requestId || person !== getPerson()) return;
       const errors = results.filter(result => result.status === "rejected");
       if (errors.length === enriched.length && errors.length) throw errors[0].reason;
@@ -178,7 +225,7 @@ export function initGoogleCalendar(personGetter) {
       const data = { calendars: enriched, palette, events: results.flatMap(result => result.status === "fulfilled" ? result.value : []) };
       currentData = data;
       renderCalendarChoices(data, person);
-      renderGrid(data);
+      renderCalendarView(data);
       elt("google-calendar").hidden = false;
       status(errors.length ? `Não foi possível carregar ${errors.length} calendário(s). Os restantes estão visíveis.` : "");
     } catch (error) {
@@ -235,11 +282,20 @@ export function initGoogleCalendar(personGetter) {
     status("Conta anterior removida. Liga agora a conta Google correta.");
   });
   elt("google-refresh").addEventListener("click", render);
+  document.querySelectorAll("[data-google-view]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (calendarView === button.dataset.googleView) return;
+      calendarView = button.dataset.googleView;
+      void render();
+    });
+  });
+  elt("google-today").addEventListener("click", () => {
+    selectedDay = localDateKey(new Date());
+    void render();
+  });
   for (const [id, delta] of [["google-prev", -1], ["google-next", 1]]) {
     elt(id).addEventListener("click", () => {
-      const date = new Date(month.year, month.index + delta, 1);
-      month.year = date.getFullYear(); month.index = date.getMonth();
-      selectedDay = localDateKey(date);
+      selectedDay = shiftCalendarDate(calendarView, selectedDay, delta);
       void render();
     });
   }
