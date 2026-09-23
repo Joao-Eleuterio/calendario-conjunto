@@ -1,4 +1,5 @@
-import { GOOGLE_CLIENT_ID } from "./config.js";
+import { GOOGLE_CLIENT_ID, GOOGLE_PERSISTENT_ENABLED } from "./config.js";
+import { persistentCalendar } from "./google-calendar-session.js";
 import { calendarColor, calendarRange, colorText, eventColor, eventDays, localDateKey, shiftCalendarDate, timeLabel } from "./google-calendar-data.js";
 
 const CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
@@ -190,7 +191,65 @@ function renderCalendarView(data) {
 
 export function initGoogleCalendar(personGetter) {
   getPerson = personGetter;
+  async function renderPersistent() {
+    const person = getPerson();
+    const identity = ++requestId;
+    elt("google-owner").textContent = `Calendários de ${LABELS[person]}`;
+    elt("google-calendar").hidden = true;
+    currentData = null;
+    elt("google-connect").hidden = true;
+    elt("google-disconnect").hidden = true;
+    elt("google-refresh").hidden = true;
+    elt("google-change-account").hidden = true;
+    status("A verificar a ligação Google…");
+    try {
+      const connection = await persistentCalendar.status(person);
+      if (identity !== requestId || person !== getPerson()) return;
+      const callback = persistentCalendar.callbackResult();
+      const ownsView = connection.viewerPerson === person;
+      elt("google-connect").hidden = connection.signedIn && (connection.connected || !ownsView);
+      elt("google-connect").dataset.mode = connection.signedIn ? "connect" : "view";
+      elt("google-connect").textContent = connection.signedIn ? "Ligar o meu Google Calendar" : "Entrar com Google";
+      elt("google-disconnect").hidden = !connection.connected || !ownsView;
+      elt("google-disconnect").textContent = "Desligar o meu Google Calendar";
+      elt("google-refresh").hidden = !connection.connected;
+      elt("google-change-account").hidden = !connection.signedIn;
+      elt("google-change-account").textContent = "Trocar utilizador neste aparelho";
+      elt("google-account").textContent = connection.connected ? `Conta: ${connection.email}` : "";
+      if (!connection.connected) {
+        const explanation = !connection.signedIn
+          ? "Entra com a tua conta Google para ver os calendários ligados."
+          : ownsView ? "Liga o teu Google Calendar uma vez para ficar disponível nos dois telemóveis."
+          : `${LABELS[person]} ainda não ligou o Google Calendar na sua conta.`;
+        status(callback?.person === person && callback.error ? callback.error : explanation);
+        return;
+      }
+      status("A carregar eventos…");
+      const range = calendarRange(calendarView, selectedDay);
+      const result = await persistentCalendar.data(person, range);
+      if (identity !== requestId || person !== getPerson()) return;
+      const enriched = result.calendars.map(calendar => ({ ...calendar, color: calendarColor(calendar, result.palette) }));
+      for (const calendar of enriched) {
+        if (!visibleByPerson[person].has(calendar.id)) visibleByPerson[person].set(calendar.id, calendar.selected !== false);
+      }
+      const names = new Map(enriched.map(calendar => [calendar.id, calendar]));
+      const events = result.events.map(event => ({ ...event, calendarColor: names.get(event.calendarId)?.color }));
+      const data = { calendars: enriched, palette: result.palette, events };
+      currentData = data;
+      renderCalendarChoices(data, person);
+      renderCalendarView(data);
+      elt("google-calendar").hidden = false;
+      status(result.failures ? `Não foi possível carregar ${result.failures} calendário(s).` : "");
+    } catch (error) {
+      if (identity !== requestId || person !== getPerson()) return;
+      status(error.message);
+      elt("google-change-account").hidden = false;
+      elt("google-change-account").textContent = "Trocar utilizador neste aparelho";
+      elt("google-calendar").hidden = true;
+    }
+  }
   async function render() {
+    if (GOOGLE_PERSISTENT_ENABLED) return renderPersistent();
     const person = getPerson();
     const identity = ++requestId;
     const session = sessionFor(person);
@@ -238,6 +297,12 @@ export function initGoogleCalendar(personGetter) {
   }
 
   elt("google-connect").addEventListener("click", () => {
+    if (GOOGLE_PERSISTENT_ENABLED) {
+      status("A abrir a autorização Google…");
+      const mode = elt("google-connect").dataset.mode;
+      void (mode === "connect" ? persistentCalendar.connect(getPerson()) : persistentCalendar.signIn(getPerson())).catch(error => status(error.message));
+      return;
+    }
     const person = getPerson();
     if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes("COLOCA_AQUI")) { status("Configura primeiro o Google OAuth Client ID."); return; }
     if (!window.google?.accounts?.oauth2) { status("Não foi possível carregar o acesso Google. Verifica a ligação e tenta novamente."); return; }
@@ -271,10 +336,20 @@ export function initGoogleCalendar(personGetter) {
     client.requestAccessToken({ prompt: "select_account" });
   });
   elt("google-disconnect").addEventListener("click", () => {
+    if (GOOGLE_PERSISTENT_ENABLED) {
+      status("A desligar a conta…");
+      void persistentCalendar.disconnect(getPerson()).then(render).catch(error => status(error.message));
+      return;
+    }
     sessions[getPerson()] = null;
     void render();
   });
   elt("google-change-account").addEventListener("click", () => {
+    if (GOOGLE_PERSISTENT_ENABLED) {
+      status("A terminar a sessão neste aparelho…");
+      void persistentCalendar.signOut().then(render).catch(error => status(error.message));
+      return;
+    }
     if (!confirm(`Alterar a conta Google associada à vista de ${LABELS[getPerson()]} neste navegador?`)) return;
     localStorage.removeItem(bindingKey(getPerson()));
     sessions[getPerson()] = null;
