@@ -306,11 +306,19 @@ main#views { flex: 1; padding: 4px 20px 24px; }
 .google-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .google-button { border: 0; border-radius: var(--radius-s); background: var(--conjunto); color: white; font-weight: 600; padding: 11px 14px; cursor: pointer; }
 .google-status { color: var(--ink-soft); font-size: .85rem; line-height: 1.4; }
+.google-calendars { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 20px; }
+.google-calendar-choice { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: white; border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; font-size: .78rem; cursor: pointer; }
+.google-calendar-choice input { margin: 0; accent-color: var(--conjunto); }
+.google-calendar-choice .google-choice-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.google-calendar-choice span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .google-cell.selected { background: var(--conjunto-bg); border-color: var(--conjunto); }
-.google-dot { background: var(--conjunto); width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; }
+.google-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%; margin-top: 4px; }
+.google-dot { width: 5px; height: 5px; border-radius: 50%; }
 .google-day-title { margin-top: 24px; font-size: 1.1rem; }
 .google-events { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .google-event { background: white; border-left: 4px solid var(--conjunto); padding: 12px; border-radius: var(--radius-s); display: flex; gap: 12px; font-size: .9rem; }
 .google-time { min-width: 72px; color: var(--ink-soft); font-size: .8rem; }
 .google-event a { color: var(--ink); overflow-wrap: anywhere; }
+.google-event-details { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.google-event-details small { color: var(--ink-soft); font-size: .75rem; }
 .google-empty { color: var(--ink-soft); font-size: .85rem; }

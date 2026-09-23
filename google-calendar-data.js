@@ -20,3 +20,16 @@ export function timeLabel(event) {
   if (!event.start?.dateTime) return "Dia inteiro";
   return new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit" }).format(new Date(event.start.dateTime));
 }
+
+const FALLBACK_COLOR = "#1F6F64";
+function safeColor(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : null;
+}
+
+export function calendarColor(calendar, palette = {}) {
+  return safeColor(calendar.backgroundColor) || safeColor(palette.calendar?.[calendar.colorId]?.background) || FALLBACK_COLOR;
+}
+
+export function eventColor(event, palette = {}) {
+  return safeColor(palette.event?.[event.colorId]?.background) || safeColor(event.calendarColor) || FALLBACK_COLOR;
+}
