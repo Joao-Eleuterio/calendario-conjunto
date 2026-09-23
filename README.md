@@ -87,7 +87,8 @@ guardado só naquele telemóvel/navegador (não é preciso fazer login com passw
 - **Calendário** — consulta todos os calendários Google visíveis da conta autorizada
   para a vista João ou Inês, com as cores configuradas no Google (incluindo cores
   próprias de eventos). Podes ativar ou ocultar cada calendário na própria aba,
-  com navegação mensal e eventos por dia. Esta aba
+  alternar entre vistas **Dia**, **Semana** e **Mês**, e navegar entre períodos.
+  Os eventos aparecem em cards com a respetiva cor. Esta aba
   requer o OAuth Client ID acima e acesso à rede.
 
 Tudo o que um dos dois adiciona aparece automaticamente no telemóvel do outro
