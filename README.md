@@ -43,7 +43,7 @@ export const SUPABASE_ANON_KEY = "eyJ...";
 4. Copia apenas o **Client ID** para `GOOGLE_CLIENT_ID` em `config.js`. Nunca coloques o Client Secret no repositório.
 5. Depois da publicação, cada um abre a aba **Calendário**, escolhe a respetiva vista e autoriza a sua conta Google. A primeira conta associada a cada vista fica identificada pelo email **neste navegador**; para mudar usa **Alterar conta associada**.
 
-A app consulta **apenas o calendário principal**, em leitura, sem copiar eventos para o Supabase. O acesso Google é temporário e os tokens ficam só na memória da página: ao reabrir a app ou quando expiram, pode ser necessário clicar novamente em **Ligar Google Calendar**. A escolha João/Inês da app é local e não autentica quem usa o aparelho; num aparelho partilhado, quem troca de vista poderá ver os eventos de uma conta que esteja ligada nessa sessão. Para acesso persistente e controlo real por pessoa, será preciso acrescentar autenticação e um backend próprio.
+A app consulta os calendários da conta, em leitura, sem copiar eventos para o Supabase. A autorização passa a pedir também acesso de leitura à lista de calendários, pelo que o Google poderá pedir novo consentimento. O acesso Google é temporário e os tokens ficam só na memória da página: ao reabrir a app ou quando expiram, pode ser necessário clicar novamente em **Ligar Google Calendar**. A escolha João/Inês da app é local e não autentica quem usa o aparelho; num aparelho partilhado, quem troca de vista poderá ver os eventos de uma conta que esteja ligada nessa sessão. Para acesso persistente e controlo real por pessoa, será preciso acrescentar autenticação e um backend próprio.
 
 ```bash
 cd calendario-conjunto
@@ -84,8 +84,10 @@ guardado só naquele telemóvel/navegador (não é preciso fazer login com passw
   editar em linha ou remover), com checkbox de "feito hoje" por pessoa.
   Por baixo, 4 pastas (Manhã / Fitness / Ler / Skill) onde cada um pode
   tirar/enviar uma foto — fica guardada com nome, dia e hora.
-- **Calendário** — consulta o calendário principal Google da conta autorizada
-  para a vista João ou Inês, com navegação mensal e eventos por dia. Esta aba
+- **Calendário** — consulta todos os calendários Google visíveis da conta autorizada
+  para a vista João ou Inês, com as cores configuradas no Google (incluindo cores
+  próprias de eventos). Podes ativar ou ocultar cada calendário na própria aba,
+  com navegação mensal e eventos por dia. Esta aba
   requer o OAuth Client ID acima e acesso à rede.
 
 Tudo o que um dos dois adiciona aparece automaticamente no telemóvel do outro

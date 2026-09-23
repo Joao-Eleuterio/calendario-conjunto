@@ -1,13 +1,17 @@
 import { GOOGLE_CLIENT_ID } from "./config.js";
-import { eventDays, localDateKey, timeLabel } from "./google-calendar-data.js";
+import { calendarColor, eventColor, eventDays, localDateKey, timeLabel } from "./google-calendar-data.js";
 
-const SCOPE = "openid email https://www.googleapis.com/auth/calendar.events.readonly";
+const CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
+const EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
+const SCOPE = `openid email ${CALENDAR_LIST_SCOPE} ${EVENTS_SCOPE}`;
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const LABELS = { joao: "João", ines: "Inês" };
 const sessions = { joao: null, ines: null }; // access tokens never enter localStorage or Supabase
 const month = { year: new Date().getFullYear(), index: new Date().getMonth() };
 let selectedDay = localDateKey(new Date());
 let requestId = 0;
+let currentData = null;
+const visibleByPerson = { joao: new Map(), ines: new Map() };
 
 function elt(id) { return document.getElementById(id); }
 function status(message) { elt("google-status").textContent = message; }
@@ -27,28 +31,57 @@ async function googleFetch(url, token) {
   return response.json();
 }
 
-async function loadEvents(person, session, identity) {
+async function loadCalendars(token) {
+  const params = new URLSearchParams({ maxResults: "250", fields: "items(id,summary,summaryOverride,backgroundColor,colorId,selected),nextPageToken" });
+  const calendars = [];
+  do {
+    const page = await googleFetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList?${params}`, token);
+    calendars.push(...(page.items || []));
+    if (!page.nextPageToken) break;
+    params.set("pageToken", page.nextPageToken);
+  } while (true);
+  return calendars;
+}
+
+async function loadCalendarEvents(calendar, session, identity) {
   const start = new Date(month.year, month.index, 1);
   const end = new Date(month.year, month.index + 1, 1);
   const params = new URLSearchParams({
     timeMin: start.toISOString(), timeMax: end.toISOString(),
     singleEvents: "true", orderBy: "startTime", maxResults: "2500",
-    fields: "items(id,summary,start,end,htmlLink,status),nextPageToken",
+    fields: "items(id,summary,start,end,htmlLink,status,colorId),nextPageToken",
   });
   const events = [];
   do {
-    const page = await googleFetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, session.token);
+    const page = await googleFetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events?${params}`, session.token);
     events.push(...(page.items || []));
     if (!page.nextPageToken) break;
     params.set("pageToken", page.nextPageToken);
-  } while (identity === requestId && person === identityPerson());
-  return events.filter(event => event.status !== "cancelled");
+  } while (identity === requestId);
+  return events.filter(event => event.status !== "cancelled").map(event => ({ ...event, calendarId: calendar.id, calendarName: calendar.summaryOverride || calendar.summary || "Calendário", calendarColor: calendar.color }));
 }
 
 let getPerson;
-function identityPerson() { return getPerson(); }
 
-function renderGrid(events) {
+function renderCalendarChoices(data, person) {
+  const container = elt("google-calendars");
+  container.replaceChildren();
+  for (const calendar of data.calendars) {
+    const label = document.createElement("label"); label.className = "google-calendar-choice";
+    const input = document.createElement("input"); input.type = "checkbox";
+    input.checked = visibleByPerson[person].get(calendar.id);
+    const dot = document.createElement("span"); dot.className = "google-choice-dot"; dot.style.backgroundColor = calendar.color;
+    const name = document.createElement("span"); name.textContent = calendar.summaryOverride || calendar.summary || "Calendário";
+    input.addEventListener("change", () => {
+      visibleByPerson[person].set(calendar.id, input.checked);
+      if (person === getPerson() && currentData === data) renderGrid(data);
+    });
+    label.append(input, dot, name); container.appendChild(label);
+  }
+}
+
+function renderGrid(data) {
+  const events = data.events.filter(event => visibleByPerson[getPerson()].get(event.calendarId));
   const first = new Date(month.year, month.index, 1);
   const last = new Date(month.year, month.index + 1, 1);
   const byDay = new Map();
@@ -73,27 +106,39 @@ function renderGrid(events) {
     const number = document.createElement("span"); number.className = "num"; number.textContent = day;
     button.appendChild(number);
     if (byDay.has(date)) {
-      const dot = document.createElement("span"); dot.className = "google-dot";
-      button.appendChild(dot);
+      const dots = document.createElement("span"); dots.className = "google-dots";
+      for (const event of byDay.get(date).slice(0, 4)) {
+        const dot = document.createElement("span"); dot.className = "google-dot";
+        dot.style.backgroundColor = eventColor(event, data.palette);
+        dots.appendChild(dot);
+      }
+      button.appendChild(dots);
     }
-    button.addEventListener("click", () => { selectedDay = date; renderGrid(events); });
+    button.addEventListener("click", () => { selectedDay = date; renderGrid(data); });
     grid.appendChild(button);
   }
   const date = new Date(`${selectedDay}T12:00:00`);
   elt("google-day-title").textContent = `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
   const list = elt("google-events"); list.replaceChildren();
-  const todayEvents = byDay.get(selectedDay) || [];
+  const todayEvents = (byDay.get(selectedDay) || []).sort((a, b) => {
+    if (!!a.start?.date !== !!b.start?.date) return a.start?.date ? -1 : 1;
+    return new Date(a.start?.dateTime || `${a.start?.date}T00:00:00`) - new Date(b.start?.dateTime || `${b.start?.date}T00:00:00`);
+  });
   if (!todayEvents.length) {
     const empty = document.createElement("p"); empty.className = "google-empty"; empty.textContent = "Sem eventos neste dia."; list.appendChild(empty);
   }
   for (const event of todayEvents) {
     const item = document.createElement("div"); item.className = "google-event";
+    item.style.borderLeftColor = eventColor(event, data.palette);
     const time = document.createElement("span"); time.className = "google-time";
     time.textContent = timeLabel(event);
     const title = document.createElement(event.htmlLink?.startsWith("https://calendar.google.com/") ? "a" : "span");
     title.textContent = event.summary || "(Sem título)";
     if (title.tagName === "A") { title.href = event.htmlLink; title.target = "_blank"; title.rel = "noopener noreferrer"; }
-    item.append(time, title); list.appendChild(item);
+    const details = document.createElement("span"); details.className = "google-event-details";
+    const source = document.createElement("small"); source.textContent = event.calendarName;
+    details.append(title, source);
+    item.append(time, details); list.appendChild(item);
   }
 }
 
@@ -103,24 +148,39 @@ export function initGoogleCalendar(personGetter) {
     const person = getPerson();
     const identity = ++requestId;
     const session = sessionFor(person);
-    elt("google-owner").textContent = `Calendário principal de ${LABELS[person]}`;
+    elt("google-owner").textContent = `Calendários de ${LABELS[person]}`;
     elt("google-account").textContent = session ? `Conta: ${session.email}` : "";
     elt("google-connect").hidden = !!session;
     elt("google-disconnect").hidden = !session;
     elt("google-refresh").hidden = !session;
     elt("google-change-account").hidden = !localStorage.getItem(bindingKey(person));
-    elt("google-calendar").hidden = !session;
+    elt("google-calendar").hidden = true; // nunca mostrar eventos da identidade anterior enquanto carrega
+    currentData = null;
     if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes("COLOCA_AQUI")) {
       status("Falta configurar o Google OAuth Client ID em config.js."); return;
     }
     if (!session) { status("Liga a tua conta Google para consultar os eventos. A ligação poderá ter de ser repetida mais tarde."); return; }
     status("A carregar eventos…");
     try {
-      const events = await loadEvents(person, session, identity);
+      const [calendars, palette] = await Promise.all([
+        loadCalendars(session.token),
+        googleFetch("https://www.googleapis.com/calendar/v3/colors", session.token).catch(() => ({ event: {}, calendar: {} })),
+      ]);
       if (identity !== requestId || person !== getPerson()) return;
-      renderGrid(events);
+      const enriched = calendars.map(calendar => ({ ...calendar, color: calendarColor(calendar, palette) }));
+      const results = await Promise.allSettled(enriched.map(calendar => loadCalendarEvents(calendar, session, identity)));
+      if (identity !== requestId || person !== getPerson()) return;
+      const errors = results.filter(result => result.status === "rejected");
+      if (errors.length === enriched.length && errors.length) throw errors[0].reason;
+      for (const calendar of enriched) {
+        if (!visibleByPerson[person].has(calendar.id)) visibleByPerson[person].set(calendar.id, calendar.selected !== false);
+      }
+      const data = { calendars: enriched, palette, events: results.flatMap(result => result.status === "fulfilled" ? result.value : []) };
+      currentData = data;
+      renderCalendarChoices(data, person);
+      renderGrid(data);
       elt("google-calendar").hidden = false;
-      status("");
+      status(errors.length ? `Não foi possível carregar ${errors.length} calendário(s). Os restantes estão visíveis.` : "");
     } catch (error) {
       if (identity !== requestId || person !== getPerson()) return;
       if (error.expired) sessions[person] = null;
@@ -139,8 +199,8 @@ export function initGoogleCalendar(personGetter) {
       client_id: GOOGLE_CLIENT_ID, scope: SCOPE,
       callback: async response => {
         if (response.error || !response.access_token) { status("Autorização Google não concluída."); return; }
-        if (!google.accounts.oauth2.hasGrantedAllScopes(response, "openid", "email", "https://www.googleapis.com/auth/calendar.events.readonly")) {
-          if (person === getPerson()) status("É preciso autorizar o acesso de leitura ao calendário e ao email da conta.");
+        if (!google.accounts.oauth2.hasGrantedAllScopes(response, "openid", "email", EVENTS_SCOPE, CALENDAR_LIST_SCOPE)) {
+          if (person === getPerson()) status("É preciso autorizar a lista de calendários, os eventos e o email da conta.");
           return;
         }
         try {

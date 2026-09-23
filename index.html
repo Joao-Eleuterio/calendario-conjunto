@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=6" />
+<link rel="stylesheet" href="./styles.css?v=7" />
 <link rel="stylesheet" href="./p50-history.css?v=5" />
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -84,7 +84,7 @@
       </div>
     </section>
 
-    <!-- GOOGLE CALENDAR: apenas o calendário principal da conta autorizada -->
+    <!-- GOOGLE CALENDAR: calendários da conta autorizada -->
     <section id="view-google" class="view" hidden>
       <h2 class="section-title">Google Calendar</h2>
       <p id="google-owner" class="google-owner"></p>
@@ -97,6 +97,7 @@
       </div>
       <p id="google-status" class="google-status" role="status" aria-live="polite"></p>
       <div id="google-calendar" hidden>
+        <div id="google-calendars" class="google-calendars" aria-label="Calendários disponíveis"></div>
         <div class="month-nav">
           <button id="google-prev" class="nav-arrow" type="button" aria-label="Mês anterior">‹</button>
           <h3 id="google-month-title" class="month-title"></h3>
@@ -144,7 +145,7 @@
   </li>
 </template>
 
-<script type="module" src="./app.js?v=6"></script>
+<script type="module" src="./app.js?v=7"></script>
 <script type="module" src="./p50-history.js?v=5"></script>
 </body>
 </html>
