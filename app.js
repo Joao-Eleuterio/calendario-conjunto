@@ -1,5 +1,6 @@
 import { addYears, newSeriesId, recurrenceDates } from "./recurrence.js";
 import { sb } from "./supabase-client.js";
+import { initGoogleCalendar } from "./google-calendar.js";
 
 const PERSON_LABEL = { conjunto: "Conjunto", joao: "João", ines: "Inês" };
 const WEEKDAYS_PT = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
@@ -35,6 +36,7 @@ const state = {
 };
 
 let recurrenceSupportPromise = null;
+let googleCalendar;
 
 function isMissingRecurrenceSchema(error) {
   const code = String(error?.code || "").toUpperCase();
@@ -103,6 +105,7 @@ function startApp() {
   wireDayNav();
   wireMonthNav();
   wireP50AddRule();
+  googleCalendar = initGoogleCalendar(() => state.person);
   renderDay();
   renderMonth();
   renderP50();
@@ -122,6 +125,7 @@ function wireIdentityPill() {
       setIdentity(alt);
       renderIdentityPill();
       renderDay(); renderMonth(); renderP50();
+      googleCalendar?.render();
     }
   });
 }
@@ -140,6 +144,8 @@ function switchTab(tab) {
   document.getElementById("view-dia").hidden = tab !== "dia";
   document.getElementById("view-mes").hidden = tab !== "mes";
   document.getElementById("view-p50").hidden = tab !== "p50";
+  document.getElementById("view-google").hidden = tab !== "google";
+  if (tab === "google") googleCalendar?.render();
 }
 
 // ================================================================
@@ -621,7 +627,10 @@ function subscribeRealtime() {
 
   // além do realtime, atualiza sempre que a app volta a ficar visível
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { renderDay(); renderMonth(); renderP50(); }
+    if (document.visibilityState === "visible") {
+      renderDay(); renderMonth(); renderP50();
+      if (state.activeTab === "google") googleCalendar?.render();
+    }
   });
 }
 

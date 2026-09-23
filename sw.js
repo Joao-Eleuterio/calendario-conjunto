@@ -1,10 +1,12 @@
-const CACHE = "cc-shell-v5";
+const CACHE = "cc-shell-v6";
 const SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=5",
+  "./styles.css?v=6",
   "./p50-history.css?v=5",
-  "./app.js?v=5",
+  "./app.js?v=6",
+  "./google-calendar.js",
+  "./google-calendar-data.js",
   "./recurrence.js",
   "./supabase-client.js",
   "./p50-history.js?v=5",

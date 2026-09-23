@@ -299,3 +299,18 @@ main#views { flex: 1; padding: 4px 20px 24px; }
 .series-choice.danger strong { color: #9b2c2c; }
 .full-btn { width: 100%; }
 @media (min-width: 481px) { .modal-backdrop { align-items: center; } .modal { border-radius: var(--radius-l); max-height: 92vh; overflow-y: auto; } }
+
+/* ===== Google Calendar ===== */
+.google-owner { color: var(--ink-soft); margin: 6px 0 2px; font-size: .9rem; }
+.google-account { font-size: .8rem; color: var(--conjunto); margin: 0 0 12px; overflow-wrap: anywhere; }
+.google-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.google-button { border: 0; border-radius: var(--radius-s); background: var(--conjunto); color: white; font-weight: 600; padding: 11px 14px; cursor: pointer; }
+.google-status { color: var(--ink-soft); font-size: .85rem; line-height: 1.4; }
+.google-cell.selected { background: var(--conjunto-bg); border-color: var(--conjunto); }
+.google-dot { background: var(--conjunto); width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; }
+.google-day-title { margin-top: 24px; font-size: 1.1rem; }
+.google-events { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.google-event { background: white; border-left: 4px solid var(--conjunto); padding: 12px; border-radius: var(--radius-s); display: flex; gap: 12px; font-size: .9rem; }
+.google-time { min-width: 72px; color: var(--ink-soft); font-size: .8rem; }
+.google-event a { color: var(--ink); overflow-wrap: anywhere; }
+.google-empty { color: var(--ink-soft); font-size: .85rem; }
