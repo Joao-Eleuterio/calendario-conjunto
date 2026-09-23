@@ -1,6 +1,6 @@
 # Calendário Conjunto
 
-PWA para o calendário partilhado (João & Inês): aba Dia, aba Mês e Project 50.
+PWA para o calendário partilhado (João & Inês): aba Dia, aba Mês, Project 50 e Google Calendar.
 Stack: HTML/CSS/JS puro (sem build) + Supabase (base de dados, storage e realtime) + GitHub Pages.
 
 ## 1. Criar o projeto Supabase
@@ -34,6 +34,16 @@ export const SUPABASE_ANON_KEY = "eyJ...";
 ```
 
 ## 3. Publicar no GitHub Pages
+
+### Configurar o Google Calendar
+
+1. Na [Google Cloud Console](https://console.cloud.google.com/), cria ou seleciona um projeto, ativa a **Google Calendar API** e configura o ecrã de consentimento OAuth (nome e email de suporte).
+2. Se a aplicação OAuth estiver em **Testing**, adiciona os emails de João e Inês aos **Test users**. O Google pode exigir verificação ou limites adicionais conforme o modo de publicação e os scopes escolhidos.
+3. Em **Credentials**, cria um **OAuth client ID** do tipo **Web application**. Em **Authorized JavaScript origins**, coloca `https://joao-eleuterio.github.io` (sem `/calendario-conjunto/`). Para testes locais, acrescenta `http://localhost:8000`. Este fluxo com popup não necessita de redirect URI.
+4. Copia apenas o **Client ID** para `GOOGLE_CLIENT_ID` em `config.js`. Nunca coloques o Client Secret no repositório.
+5. Depois da publicação, cada um abre a aba **Calendário**, escolhe a respetiva vista e autoriza a sua conta Google. A primeira conta associada a cada vista fica identificada pelo email **neste navegador**; para mudar usa **Alterar conta associada**.
+
+A app consulta **apenas o calendário principal**, em leitura, sem copiar eventos para o Supabase. O acesso Google é temporário e os tokens ficam só na memória da página: ao reabrir a app ou quando expiram, pode ser necessário clicar novamente em **Ligar Google Calendar**. A escolha João/Inês da app é local e não autentica quem usa o aparelho; num aparelho partilhado, quem troca de vista poderá ver os eventos de uma conta que esteja ligada nessa sessão. Para acesso persistente e controlo real por pessoa, será preciso acrescentar autenticação e um backend próprio.
 
 ```bash
 cd calendario-conjunto
@@ -74,6 +84,9 @@ guardado só naquele telemóvel/navegador (não é preciso fazer login com passw
   editar em linha ou remover), com checkbox de "feito hoje" por pessoa.
   Por baixo, 4 pastas (Manhã / Fitness / Ler / Skill) onde cada um pode
   tirar/enviar uma foto — fica guardada com nome, dia e hora.
+- **Calendário** — consulta o calendário principal Google da conta autorizada
+  para a vista João ou Inês, com navegação mensal e eventos por dia. Esta aba
+  requer o OAuth Client ID acima e acesso à rede.
 
 Tudo o que um dos dois adiciona aparece automaticamente no telemóvel do outro
 (Realtime do Supabase) — não é preciso dar refresh, mas se por alguma razão a
