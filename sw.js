@@ -1,4 +1,4 @@
-const CACHE = "cc-shell-v9";
+const CACHE = "cc-shell-v10";
 const SHELL = [
   "./",
   "./index.html",
