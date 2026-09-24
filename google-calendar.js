@@ -209,7 +209,7 @@ export function initGoogleCalendar(personGetter) {
       const ownsView = connection.viewerPerson === person;
       elt("google-connect").hidden = connection.signedIn && (connection.connected || !ownsView);
       elt("google-connect").dataset.mode = connection.signedIn ? "connect" : "view";
-      elt("google-connect").textContent = connection.signedIn ? "Ligar o meu Google Calendar" : "Entrar com Google";
+      elt("google-connect").textContent = connection.signedIn ? "Ligar o meu Google Calendar" : "Entrar e ligar Google Calendar";
       elt("google-disconnect").hidden = !connection.connected || !ownsView;
       elt("google-disconnect").textContent = "Desligar o meu Google Calendar";
       elt("google-refresh").hidden = !connection.connected;
@@ -218,7 +218,7 @@ export function initGoogleCalendar(personGetter) {
       elt("google-account").textContent = connection.connected ? `Conta: ${connection.email}` : "";
       if (!connection.connected) {
         const explanation = !connection.signedIn
-          ? "Entra com a tua conta Google para ver os calendários ligados."
+          ? "Entra com a tua conta Google e autoriza a leitura do calendário uma vez. A sessão fica guardada neste aparelho."
           : ownsView ? "Liga o teu Google Calendar uma vez para ficar disponível nos dois telemóveis."
           : `${LABELS[person]} ainda não ligou o Google Calendar na sua conta.`;
         status(callback?.person === person && callback.error ? callback.error : explanation);

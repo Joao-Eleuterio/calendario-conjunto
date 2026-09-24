@@ -38,8 +38,18 @@ let callbackResult = null;
 const ready = (async () => {
   const url = new URL(window.location.href);
   const code = url.searchParams.get("code");
+  const oauthError = url.searchParams.get("error_description") || url.searchParams.get("error");
   let pending;
   try { pending = JSON.parse(localStorage.getItem(PENDING_KEY)); } catch { /* Ignora redirecionamentos antigos. */ }
+  if (oauthError && PEOPLE.includes(pending?.person)) {
+    url.searchParams.delete("error");
+    url.searchParams.delete("error_code");
+    url.searchParams.delete("error_description");
+    history.replaceState({}, "", url.toString());
+    localStorage.removeItem(PENDING_KEY);
+    callbackResult = { person: pending.person, error: `Autorização Google não concluída: ${oauthError}` };
+    return;
+  }
   if (!code || !PEOPLE.includes(pending?.person) || !["view", "connect"].includes(pending.mode)) return;
   url.searchParams.delete("code");
   history.replaceState({}, "", url.toString());
@@ -49,7 +59,8 @@ const ready = (async () => {
     if (error) throw error;
     if (pending.mode === "connect") {
       if (!data.session?.provider_refresh_token) throw new Error("A Google não enviou uma autorização persistente. Volta a ligar a conta.");
-      await invoke({ action: "connect", person: pending.person, refreshToken: data.session.provider_refresh_token });
+      const { viewerPerson } = await invoke({ action: "status", person: pending.person });
+      await invoke({ action: "connect", person: viewerPerson, refreshToken: data.session.provider_refresh_token });
     }
     callbackResult = { person: pending.person, success: true };
   } catch (error) {
@@ -74,7 +85,7 @@ export const persistentCalendar = {
     if (error) { localStorage.removeItem(PENDING_KEY); throw error; }
   },
   connect(person) { return this.authorize(person, "connect"); },
-  signIn(person) { return this.authorize(person, "view"); },
+  signIn(person) { return this.authorize(person, "connect"); },
   async status(person) {
     await ready;
     const { data: { session } } = await client.auth.getSession();
